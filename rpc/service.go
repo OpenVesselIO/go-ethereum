@@ -126,6 +126,7 @@ func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 			continue // function invalid
 		}
 		name := formatName(method.Name)
+		println(name)
 		callbacks[name] = cb
 	}
 	return callbacks

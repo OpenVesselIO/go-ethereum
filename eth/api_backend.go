@@ -109,6 +109,19 @@ func (b *EthAPIBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumbe
 	return b.eth.blockchain.GetBlockByNumber(uint64(number)), nil
 }
 
+func (b *EthAPIBackend) BlockWithReceiptsByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
+	// Pending block is only known by the miner
+	if number == rpc.PendingBlockNumber {
+		block := b.eth.miner.PendingBlock()
+		return block, nil
+	}
+	// Otherwise resolve and return the block
+	if number == rpc.LatestBlockNumber {
+		return b.eth.blockchain.CurrentBlock(), nil
+	}
+	return b.eth.blockchain.GetBlockByNumber(uint64(number)), nil
+}
+
 func (b *EthAPIBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.eth.blockchain.GetBlockByHash(hash), nil
 }

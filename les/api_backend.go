@@ -105,6 +105,14 @@ func (b *LesApiBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumbe
 	return b.BlockByHash(ctx, header.Hash())
 }
 
+func (b *LesApiBackend) BlockWithReceiptsByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
+	header, err := b.HeaderByNumber(ctx, number)
+	if header == nil || err != nil {
+		return nil, err
+	}
+	return b.BlockByHash(ctx, header.Hash())
+}
+
 func (b *LesApiBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.eth.blockchain.GetBlockByHash(ctx, hash)
 }
