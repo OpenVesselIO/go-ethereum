@@ -397,6 +397,10 @@ var (
 		Usage: "Maximum amount of time non-executable transaction are queued",
 		Value: ethconfig.Defaults.TxPool.Lifetime,
 	}
+	TxPoolReceiveTransactions = cli.BoolFlag{
+		Name:  "txpool.receiveTx",
+		Usage: "Allows to send transactions to tx pool",
+	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -1417,6 +1421,9 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	}
 	if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {
 		cfg.Lifetime = ctx.GlobalDuration(TxPoolLifetimeFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxPoolReceiveTransactions.Name) {
+		cfg.ReceiveTransactions = ctx.GlobalBool(TxPoolReceiveTransactions.Name)
 	}
 }
 

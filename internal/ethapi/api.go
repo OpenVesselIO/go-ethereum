@@ -738,10 +738,10 @@ func (s *PublicBlockChainAPI) GetHeaderByHash(ctx context.Context, hash common.H
 }
 
 // GetBlockByNumber returns the requested canonical block.
-// * When blockNr is -1 the chain head is returned.
-// * When blockNr is -2 the pending chain head is returned.
-// * When fullTx is true all transactions in the block are returned, otherwise
-//   only the transaction hash is returned.
+//   - When blockNr is -1 the chain head is returned.
+//   - When blockNr is -2 the pending chain head is returned.
+//   - When fullTx is true all transactions in the block are returned, otherwise
+//     only the transaction hash is returned.
 func (s *PublicBlockChainAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
 	block, err := s.b.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
@@ -1482,17 +1482,20 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
 type PublicTransactionPoolAPI struct {
-	b         Backend
-	nonceLock *AddrLocker
-	signer    types.Signer
+	b                       Backend
+	nonceLock               *AddrLocker
+	signer                  types.Signer
+	allowReceiveTransaction bool
 }
 
+var SendingTransactionsNotPermitted = errors.New("sending transactions not permitted")
+
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransactionPoolAPI {
+func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, allowReceiveTransaction bool) *PublicTransactionPoolAPI {
 	// The signer used by the API should always be the 'latest' known one because we expect
 	// signers to be backwards-compatible with old transactions.
 	signer := types.LatestSigner(b.ChainConfig())
-	return &PublicTransactionPoolAPI{b, nonceLock, signer}
+	return &PublicTransactionPoolAPI{b, nonceLock, signer, allowReceiveTransaction}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1711,6 +1714,10 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args TransactionArgs) (common.Hash, error) {
+	if !s.allowReceiveTransaction {
+		return common.Hash{}, SendingTransactionsNotPermitted
+	}
+
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.from()}
 
@@ -1760,6 +1767,10 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Tra
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (common.Hash, error) {
+	if !s.allowReceiveTransaction {
+		return common.Hash{}, SendingTransactionsNotPermitted
+	}
+
 	tx := new(types.Transaction)
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return common.Hash{}, err
@@ -1857,6 +1868,10 @@ func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, err
 // Resend accepts an existing transaction and a new gas price and limit. It will remove
 // the given transaction from the pool and reinsert it with the new gas price and limit.
 func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error) {
+	if !s.allowReceiveTransaction {
+		return common.Hash{}, SendingTransactionsNotPermitted
+	}
+
 	if sendArgs.Nonce == nil {
 		return common.Hash{}, fmt.Errorf("missing transaction nonce in transaction spec")
 	}

@@ -95,7 +95,7 @@ type Backend interface {
 	Engine() consensus.Engine
 }
 
-func GetAPIs(apiBackend Backend) []rpc.API {
+func GetAPIs(apiBackend Backend, allowReceiveTransactions bool) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
@@ -111,7 +111,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock, allowReceiveTransactions),
 			Public:    true,
 		}, {
 			Namespace: "txpool",

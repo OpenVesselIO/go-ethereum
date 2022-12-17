@@ -63,10 +63,10 @@ func testSnapSyncDisabling(t *testing.T, ethVer uint, snapVer uint) {
 	defer fullPeerEth.Close()
 
 	go empty.handler.runEthPeer(emptyPeerEth, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(empty.handler), peer)
+		return eth.Handle((*ethHandler)(empty.handler), peer, false)
 	})
 	go full.handler.runEthPeer(fullPeerEth, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(full.handler), peer)
+		return eth.Handle((*ethHandler)(full.handler), peer, false)
 	})
 
 	emptyPipeSnap, fullPipeSnap := p2p.MsgPipe()

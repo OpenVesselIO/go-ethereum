@@ -94,7 +94,17 @@ type TxPool interface {
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `eth`.
-func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2p.Protocol {
+func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator, permittedNodes []*enode.Node) []p2p.Protocol {
+	isPermitted := func(peer *Peer) bool {
+		for _, node := range permittedNodes {
+			if node.ID() == peer.Node().ID() {
+				return true
+			}
+		}
+
+		return false
+	}
+
 	protocols := make([]p2p.Protocol, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
 		version := version // Closure
@@ -108,7 +118,7 @@ func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2
 				defer peer.Close()
 
 				return backend.RunPeer(peer, func(peer *Peer) error {
-					return Handle(backend, peer)
+					return Handle(backend, peer, isPermitted(peer))
 				})
 			},
 			NodeInfo: func() interface{} {
@@ -149,9 +159,9 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 // Handle is invoked whenever an `eth` connection is made that successfully passes
 // the protocol handshake. This method will keep processing messages until the
 // connection is torn down.
-func Handle(backend Backend, peer *Peer) error {
+func Handle(backend Backend, peer *Peer, permitted bool) error {
 	for {
-		if err := handleMessage(backend, peer); err != nil {
+		if err := handleMessage(backend, peer, permitted); err != nil {
 			peer.Log().Debug("Message handling failed in `eth`", "err", err)
 			return err
 		}
@@ -165,25 +175,28 @@ type Decoder interface {
 }
 
 var eth66 = map[uint64]msgHandler{
+	GetBlockHeadersMsg:       handleGetBlockHeaders66,
+	GetBlockBodiesMsg:        handleGetBlockBodies66,
+	GetNodeDataMsg:           handleGetNodeData66,
+	NodeDataMsg:              handleNodeData66,
+	GetReceiptsMsg:           handleGetReceipts66,
+	GetPooledTransactionsMsg: handleGetPooledTransactions66,
+}
+
+var eth66Permitted = map[uint64]msgHandler{
 	NewBlockHashesMsg:             handleNewBlockhashes,
 	NewBlockMsg:                   handleNewBlock,
-	TransactionsMsg:               handleTransactions,
 	NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes,
-	GetBlockHeadersMsg:            handleGetBlockHeaders66,
-	BlockHeadersMsg:               handleBlockHeaders66,
-	GetBlockBodiesMsg:             handleGetBlockBodies66,
-	BlockBodiesMsg:                handleBlockBodies66,
-	GetNodeDataMsg:                handleGetNodeData66,
-	NodeDataMsg:                   handleNodeData66,
-	GetReceiptsMsg:                handleGetReceipts66,
-	ReceiptsMsg:                   handleReceipts66,
-	GetPooledTransactionsMsg:      handleGetPooledTransactions66,
+	TransactionsMsg:               handleTransactions,
 	PooledTransactionsMsg:         handlePooledTransactions66,
+	BlockHeadersMsg:               handleBlockHeaders66,
+	BlockBodiesMsg:                handleBlockBodies66,
+	ReceiptsMsg:                   handleReceipts66,
 }
 
 // handleMessage is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
-func handleMessage(backend Backend, peer *Peer) error {
+func handleMessage(backend Backend, peer *Peer, permitted bool) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
@@ -214,5 +227,15 @@ func handleMessage(backend Backend, peer *Peer) error {
 	if handler := handlers[msg.Code]; handler != nil {
 		return handler(backend, msg, peer)
 	}
+
+	if handler := eth66Permitted[msg.Code]; handler != nil {
+		if permitted {
+			return handler(backend, msg, peer)
+		} else {
+			peer.Log().Debug("Ignoring message from not permitted peer")
+			return nil
+		}
+	}
+
 	return fmt.Errorf("%w: %v", errInvalidMsgCode, msg.Code)
 }

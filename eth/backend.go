@@ -292,7 +292,9 @@ func makeExtraData(extra []byte) []byte {
 // APIs return the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Ethereum) APIs() []rpc.API {
-	apis := ethapi.GetAPIs(s.APIBackend)
+	allowReceiveTransactions := s.config.TxPool.ReceiveTransactions
+
+	apis := ethapi.GetAPIs(s.APIBackend, allowReceiveTransactions)
 
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
@@ -528,7 +530,7 @@ func (s *Ethereum) SyncMode() downloader.SyncMode {
 // Protocols returns all the currently configured
 // network protocols to start.
 func (s *Ethereum) Protocols() []p2p.Protocol {
-	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates)
+	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates, s.p2pServer.BootstrapNodes)
 	if s.config.SnapshotCache > 0 {
 		protos = append(protos, snap.MakeProtocols((*snapHandler)(s.handler), s.snapDialCandidates)...)
 	}

@@ -49,7 +49,7 @@ func newTestPeer(name string, version uint, backend Backend) (*testPeer, <-chan 
 	errc := make(chan error, 1)
 	go func() {
 		errc <- backend.RunPeer(peer, func(peer *Peer) error {
-			return Handle(backend, peer)
+			return Handle(backend, peer, true)
 		})
 	}()
 	return &testPeer{app: app, net: net, Peer: peer}, errc
