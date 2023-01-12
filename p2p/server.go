@@ -106,6 +106,11 @@ type Config struct {
 	// protocol.
 	BootstrapNodesV5 []*enode.Node `toml:",omitempty"`
 
+	RestrictTransactionPool bool
+
+	// ApiNodes are allowed to add transactions to pool.
+	ApiNodes []*enode.Node `toml:",omitempty"`
+
 	// Static nodes are used as pre-configured connections which are always
 	// maintained and re-connected on disconnects.
 	StaticNodes []*enode.Node

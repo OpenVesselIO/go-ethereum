@@ -530,7 +530,13 @@ func (s *Ethereum) SyncMode() downloader.SyncMode {
 // Protocols returns all the currently configured
 // network protocols to start.
 func (s *Ethereum) Protocols() []p2p.Protocol {
-	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates, s.p2pServer.BootstrapNodes)
+	protos := eth.MakeProtocols(
+		(*ethHandler)(s.handler),
+		s.networkID,
+		s.ethDialCandidates,
+		append(s.p2pServer.BootstrapNodes, s.p2pServer.ApiNodes...),
+		s.p2pServer.RestrictTransactionPool)
+
 	if s.config.SnapshotCache > 0 {
 		protos = append(protos, snap.MakeProtocols((*snapHandler)(s.handler), s.snapDialCandidates)...)
 	}

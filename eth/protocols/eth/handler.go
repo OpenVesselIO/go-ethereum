@@ -94,8 +94,12 @@ type TxPool interface {
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `eth`.
-func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator, permittedNodes []*enode.Node) []p2p.Protocol {
+func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator, permittedNodes []*enode.Node, restrictTransactionPool bool) []p2p.Protocol {
 	isPermitted := func(peer *Peer) bool {
+		if !restrictTransactionPool {
+			return true
+		}
+
 		for _, node := range permittedNodes {
 			if node.ID() == peer.Node().ID() {
 				return true
@@ -189,7 +193,7 @@ var eth66 = map[uint64]msgHandler{
 	TransactionsMsg:          handleTransactions,
 }
 
-var eth66Permitted = map[uint64]msgHandler{
+var eth66Restricted = map[uint64]msgHandler{
 	NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes,
 	PooledTransactionsMsg:         handlePooledTransactions66,
 }
@@ -228,7 +232,7 @@ func handleMessage(backend Backend, peer *Peer, permitted bool) error {
 		return handler(backend, msg, peer)
 	}
 
-	if handler := eth66Permitted[msg.Code]; handler != nil {
+	if handler := eth66Restricted[msg.Code]; handler != nil {
 		if permitted {
 			return handler(backend, msg, peer)
 		} else {
